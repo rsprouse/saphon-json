@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>SAPhon JSON Automation Ver 0.2</title>
+  <link href="scripts/css/bootstrap.min.css" rel="stylesheet">
+
+  <!-- Include JSONEditor library -->
+  <script src="scripts/js/jsoneditor.min.js"></script>
+
+  <style>
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    #saving-indicator {
+      visibility: hidden;
+      color: green;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="columns">
+      <h1 class="col-md-12">Auto-Saving JSON Editor Example</h1>
+    </div>
+    <div class="columns">
+      <div class="column col-md-12">
+        <!-- Bootstrap buttons will automatically apply styles -->
+        <button id="restore" class="btn btn-secondary btn-sm">Restore to Default</button>
+        <button id="hide-description" class="btn btn-secondary btn-sm">Hide Description</button>
+        <button id="show-description" class="btn btn-secondary btn-sm">Show Description</button>
+        <button id="load-json" class="btn btn-secondary btn-sm">Load JSON</button>
+        <button id="export-json" class="btn btn-secondary btn-sm">Export JSON</button>
+        <button id="toggle-properties" class="btn btn-secondary btn-sm">Toggle Properties</button>
+        <input type="file" id="file-input" accept=".json" style="display: none;" />
+        <span id="save_status" class="label">No changes yet</span>
+        <span id="saving-indicator">Saving...</span>
+      </div>
+    </div>
+    <div class="columns">
+      <div class="column col-md-12 je-ready" id="editor_holder" data-theme="bootstrap5"></div>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div id="confirmation-modal" class="modal">
+    <a href="#close" class="modal-overlay" aria-label="Close"></a>
+    <div class="modal-container">
+      <div class="modal-header">
+        <a href="#close" class="btn btn-clear float-right" aria-label="Close"></a>
+        <div class="modal-title h5">Confirmation</div>
+      </div>
+      <div class="modal-body">
+        <div class="content">
+          <p>Are you sure? This will irreversibly erase all currently saved entries.</p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="confirm-yes" class="btn btn-primary">Yes</button>
+        <button id="confirm-no" class="btn btn-secondary">No</button>
+      </div>
+    </div>
+  </div>
+
+  <script ref="scripts/js/bootstrap.min.js"></script>
+
+  <script>
+    var editor, hasChanges = false, saveInterval;
+
+    // This is the starting value for the editor
+    var starting_value = {
+      // Your starting JSON data here...
+    };
+
+    // Original schema for the editor (use your provided schema)
+    var originalSchema = {
+
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "$id": "https://github.com/levmichael/saphon/synthesis.schema.json",
+      "title": "Synthesis",
+      "description": "A SAPhon language synthesis document",
+      "type": "object",
+      "required": [
+        "doctype",
+        "name",
+        "glottolog_code",
+        "short_name",
+        "family",
+        "synthesis",
+        "alternate_names",
+        "iso_codes",
+        "countries",
+        "notes"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "doctype": {
+          "description": "The SAPhon language document type.",
+          "type": "string",
+          "const": "synthesis"
+        },
+        "name": {
+          "description": "The preferred citation form of the name of the language, in an orthographic form suited to academic publications.  It may contain spaces, hyphens, diacritics, and non-Latin glyphs that would occur in the preferred orthographic representation, e.g. **Arára do Mato Grosso**, **Aʔɨwa**, **Ashéninka (Apurucayali dialect)**.",
+          "type": "string"
+        },
+        "glottolog_code": {
+          "description": "The language code [as assigned in Glottolog](https://glottolog.org/)",
+          "type": "string",
+          "pattern": "^[a-z0-9]{4}[1-9][0-9]{3}$"
+        },
+        "short_name": {
+          "description": "The language name abbreviated to around 12 characters or less, to be used in tables and plots where space is tight.  Spaces, hyphens, diacritics, non-Latin glyphs are all permitted.",
+          "type": "string",
+          "pattern": "^.{1,12}$"
+        },
+        "family": {
+          "description": "This is the linguistic family of the language, or `Isolate` for linguistic isolates.",
+          "type": "string"
+        },
+        "natural_classes": {
+          "description": "TODO",
+          "type": "array",
+          "format": "table",
+          "items": {
+            "type": "object",
+            "required": [
+              "symbol",
+              "members"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "symbol": {
+                "description": "TODO",
+                "type": "string",
+                "pattern": "^([A-Z]|Ṽ)$"
+              },
+              "members": {
+                "description": "TODO",
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/ipastring"
+                }
+              }
+            },
+            "format": "categories",
+          },
+          "minItems": 0
+        },
+        "synthesis": {
+          "description": "A prose description of the project's synthesis of the source materials. (TODO: rename field?)",
+          "type": "string"
+        },
+        "alternate_names": {
+          "description": "A list of alternative or outdated names for the language.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 0
+        },
+        "iso_codes": {
+          "description": "A sequence of ISO 639-3 codes for the language, or of our own devising when the ISO codes are inadequate. When we need to distinguish language varieties not distinguished by ISO 639-3, we add a three letter extension to the code with an underscore '_' separator. Ordinarily the sequence contains only one code, but more values occur when multiple ISO codes refer to the same language (e.g. [Huaylas-Conchucos Quechua]('langs/HuaylasCQ.txt' contains codes `qxn`, `qwh`).",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(([a-z]{3})|([a-z]{3}_[a-z]{3}))$"
+          },
+          "minItems": 0
+        },
+        "countries": {
+          "description": "A list of country names where the language is indigenous.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 0
+        },
+        "notes": {
+          "description": "A list of notes relating to the language.",
+          "type": "string"
+        },
+        "laryngeal_harmony": {
+          "description": "Boolean indicating presence of laryngeal harmony (true) or not (false).",
+          "type": "boolean"
+        },
+        "tone": {
+          "description": "Boolean indicating presence of tone (true) or not (false).",
+          "type": "boolean"
+        },
+        "coordinates": {
+          "description": "A list of the geographical coordinates for the language.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "latitude",
+              "longitude"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "latitude": {
+                "description": "The coordinate latitude in decimal format, given to 3 decimal places.",
+                "type": "number",
+                "multipleOf": 0.001,
+                "minimum": -90.000,
+                "maximum": 90.000
+              },
+              "longitude": {
+                "description": "The coordinate longitude in decimal format, given to 3 decimal places.",
+                "type": "number",
+                "multipleOf": 0.001,
+                "minimum": -180.000,
+                "maximum": 180.000
+              },
+              "elevation_meters": {
+                "description": "The elevation in meters, rounded to the nearest integer meter. May be omitted if unknown.",
+                "type": "integer"
+              }
+            }
+          }
+        },
+        "morphemes": {
+          "description": "A list of morphemes in this language that are of note for one or more processes that are referred to in the document.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "morpheme_id",
+              "morpheme_type",
+              "underlying_form",
+              "surface_forms",
+              "gloss"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "morpheme_id": {
+                "description": "A string identifier for the morpheme.",
+                "type": "string"
+              },
+              "morpheme_type": {
+                "description": "The kind of morphological element that undergoes the process, if the process's `type` is `morphological`. The value must be one of 'prefix', 'root', 'suffix', 'proclitic', 'enclitic', or if the process `type` is not `morphological`, this field must have the value `NA` to indicate an empty value. (TODO: review the list of allowable values)",
+                "type": "string",
+                "enum": [
+                  "prefix",
+                  "root",
+                  "suffix",
+                  "proclitic",
+                  "enclitic",
+                  "NA"
+                ]
+              },
+              "underlying_form": {
+                "description": "The underlying phonological form of the morpheme, using symbols from the International Phonetic Alphabet. (TODO: elaborate on the meaning of this field, e.g. UR vs. surface).",
+                "$ref": "#/$defs/ipastring"
+              },
+              "surface_forms": {
+                "description": "A list of surface allomorphs of this morpheme, using symbols from the International Phonetic Alphabet.",
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/ipastring"
+                },
+                "minItems": 0
+              },
+              "gloss": {
+                "description": "English language gloss of the morpheme.",
+                "type": "string"
+              }
+            }
+          }
+        },
+        "phonemes": {
+          "description": "A list of the phonemes of the language, the allophones of each phoneme, and the environments in which they occur and the processes that are conditioned by each environment. This list is synthesized from the entries listed in the `ref` documents.",
+          "type": "array",
+          "format": "tabs-top",
+          "items": {
+            "format": "categories",
+            "type": "object",
+            "required": [
+              "phoneme",
+              "environments"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "phoneme": {
+                "description": "A phoneme of the language, using symbols from the International Phonetic Alphabet.",
+                "$ref": "#/$defs/ipastring"
+              },
+              "environments": {
+                "description": "A list of environments in which the phoneme may occur, and the allophones that are conditioned by that environment, and processes that yield each allophone. The values of this list are dicts.",
+                "type": "array",
+                "format": "tabs-top",
+                "items": {
+                  "type": "object",
+                  "format": "categories",
+                  "required": [
+                    "preceding",
+                    "following",
+                    "allophones"
+                  ],
+                  "additionalProperties": false,
+                  "properties": {
+                    "preceding": {
+                      "description": "A string representation of the part of the environment that precedes the phone.",
+                      "type": "string",
+                      "$comment": "TODO: test for pattern"
+                    },
+                    "following": {
+                      "description": "A string representation of the part of the environment that follows the phone.",
+                      "type": "string",
+                      "$comment": "TODO: test for pattern"
+                    },
+                    "allophones": {
+                      "description": "A list of dicts that represent allophones yielded by the phoneme in this environment. Multiple values in this list implies free variation among the allophones in this list.",
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "required": [
+                        ],
+                        "additionalProperties": false,
+                        "properties": {
+                          "processnames": {
+                            "description": "A list of process names that yield this allophone. Each value is a string. Thist list of process names does not imply free variation. Instead, the list may describe multiple processes that apply simultaneously, e.g. the process by which `phone` `e` yields `allophone` `ɛː` is described as the simultaneous application of two processes named `lowering` and `lengthening`.",
+                            "type": "array",
+                            "format": "table",
+                            "items": {
+                              "type": "string"
+                            }
+                          },
+                          "allophone": {
+                            "description": "The allophone yielded by the process(es) in this environment, as denoted in `processnames` and using symbols from the International Phonetic Alphabet.",
+                            "type": "string",
+                            "$comment": "TODO: test for pattern"
+                          }
+                        },
+                        "minItems": 0
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "processdetails": {
+          "description": "A list of details pertaining to all of the (nasal) processes active in the language. Each process described in this list must also refer to a process in the `phoneme` list one or more times. Each value in this list is a dict. The dict values of this list must not have repeated values of the conjunction of their `processtype` and `processname` values (see below).",
+          "type": "array",
+          "format": "tabs-top",
+          "items": {
+            "type": "object",
+            "required": [
+              "processname",
+              "processtype",
+              "alternation_type",
+              "domain",
+              "description",
+              "optionality",
+              "directionality"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "processname": {
+                "description": "The name of the process described. The value must match a string in the `processnames` list in the `phonemes` list. This value is a string.",
+                "type": "string",
+                "$comment": "TODO: test for phoneme value"
+              },
+              "processtype": {
+                "description": "The type of process described. The value is a string that must match one of the values of ... (TODO: add pointer to controlled vocabulary for this field). (TODO: check that this value matches the prefix of `processname`.",
+                "type": "string",
+                "$comment": "TODO: test for value"
+              },
+              "alternation_type": {
+                "description": "The type of alternation described. The value is a string that must match one of the values of `proc_alternation_vocab` (TODO: add pointer to controlled vocabulary for this field).",
+                "type": "string",
+                "$comment": "TODO: test for vocab value"
+              },
+              "domain": {
+                "description": "The domain in which the process occurs. The value is a string that must be `word-internal` or `cross-word`.",
+                "type": "string",
+                "enum": [
+                  "word-internal",
+                  "cross-word"
+                ]
+              },
+              "description": {
+                "description": "A prose description of the process.",
+                "type": "string",
+                "$comment": "TODO: test for vocab value; also, it is confusing to have a saphon name be the same as the json schema keyword 'description'"
+              },
+              "optionality": {
+                "description": "One of three values that describe whether the process applies without exception, optionally, or is not known. The valid values of these are, respectively, 'categorical', 'optional', and 'unknown'.",
+                "type": "string",
+                "enum": [
+                  "categorical",
+                  "optional",
+                  "unknown"
+                ]
+              },
+              "directionality": {
+                "description": "One of five values that describe whether in which direction the process applies. The valid values are 'leftward', 'rightward', 'bidirectional', 'circumdirectional', and 'unknown'. (TODO: full description of meanings of these values)",
+                "type": "string",
+                "enum": [
+                  "leftward",
+                  "rightward",
+                  "bidirectional",
+                  "circumdirectional",
+                  "unknown"
+                ]
+              },
+              "undergoers": {
+                "description": "A dict of the elements that are subject to this process, as listed under the keys `segments` and `morphemes.",
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "segments": {
+                    "description": "A dict of the segments that are subject to the process, as listed under the keys `units` and `positional_restrictions`. Note that the value is a simple dict and not a list of dicts as for `triggers`, `transparent`, and `opaque` values.",
+                    "$ref": "#/$defs/segments"
+                  },
+                  "morphemes": {
+                    "description": "A dict of morphemes that are subject to the process, as listed under the keys `units` and `positional_restrictions`. Note that the value is a simple dict and not a list of dicts as for `triggers`, `transparent`, and `opaque` values.",
+                    "$ref": "#/$defs/morphemes"
+                  }
+                }
+              },
+              "triggers": {
+                "description": "A dict of the elements that trigger this process, as listed under the keys `segments` and `morphemes:",
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "segments": {
+                    "description": "A list of dicts of the segments that trigger the process, as listed under the keys `units` and `positional_restriction`.",
+                    "$ref": "#/$defs/segmentslist"
+                  },
+                  "morphemes": {
+                    "description": "A list of dicts of morphemes that trigger the process, as listed under the keys `units` and `positional_restriction`.",
+                    "$ref": "#/$defs/morphemeslist"
+                  }
+                }
+              },
+              "transparent": {
+                "description": "A dict of the elements that are transparent to this process, as listed under the keys `segments` and `morphemes:",
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "segments": {
+                    "description": "A list of dicts of the segments that are transparent to the process, as listed under the keys `units` and `positional_restriction`.",
+                    "$ref": "#/$defs/segmentslist"
+                  },
+                  "morphemes": {
+                    "description": "A list of dicts of morphemes that are transparent to the process, as listed under the keys `units` and `positional_restriction`.",
+                    "$ref": "#/$defs/morphemeslist"
+                  }
+                }
+              },
+              "opaque": {
+                "description": "A dict of the elements that are opaque to this process. The elements are described by a dict:",
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "segments": {
+                    "description": "A list of dicts of the segments that are opaque to the process, as listed under the keys `units` and `positional_restriction`.",
+                    "$ref": "#/$defs/segmentslist"
+                  },
+                  "morphemes": {
+                    "description": "A list of dicts of morphemes that are opaque to the process, as listed under the keys `units` and `positional_restriction`.",
+                    "$ref": "#/$defs/morphemeslist"
+                  }
+                }
+              }
+            },
+            "format": "categories",
+          }
+        }
+      },
+      "format": "categories",
+      "basicCategoryTitle": "Main",
+      "$defs": {
+        "ipastring": {
+          "type": "string",
+          "pattern": ".*",
+          "$comment": "TODO: define pattern"
+        },
+        "morphunits": {
+          "description": "A list of valid `morpheme_ids` for this language.",
+          "type": "array",
+          "items": {
+            "description": "A valid `morpheme_id` for this language.",
+            "type": "string",
+            "pattern": ".+",
+            "$comment": "TODO: add validation"
+          },
+          "minItems": 0
+        },
+        "phonunits": {
+          "description": "A list of valid natural class and phoneme symbols for this language.",
+          "type": "array",
+          "format": "table",
+          "items": {
+            "description": "A valid natural class or phoneme symbol for this language.",
+            "type": "string",
+            "pattern": ".+",
+            "$comment": "TODO: add validation"
+          },
+          "minItems": 0
+        },
+        "positional_restrictions": {
+          "description": "A string that represents either a positional restriction (1-tuple or 2-tuple), a concatenation of positional restrictions using commas and greater signs, or one of the special vocabulary terms: Unspecified, Uncertain, None, NA.",
+          "oneOf": [
+            {
+              "type": "Explicit",
+              "pattern": "^\\{(root|prefix|suffix|proclitic|enclitic|clitic|word|morpheme|affix|syllable|foot|stressed\\ syllable|unstressed\\ syllable|pretonic\\ syllable|posttonic\\ syllable|utterance|VP)(,\\s*(initial|final|lmost|rmost|medial|onset|coda|nucleus))?\\}(\\s*(,|>)\\s*\\{(root|prefix|suffix|proclitic|enclitic|clitic|word|morpheme|affix|syllable|foot|stressed\\ syllable|unstressed\\ syllable|pretonic\\ syllable|posttonic\\ syllable|utterance|VP)(,\\s*(initial|final|lmost|rmost|medial|onset|coda|nucleus))?\\})*$",
+              "$comment": "This pattern allows for controlled vocabulary in positional restrictions. `foo` is restricted to linguistic elements, and `bar` is restricted to positional terms."
+            },
+            {
+              "type": "Special",
+              "enum": ["Unspecified", "Uncertain", "None", "NA"],
+              "$comment": "Special vocabulary terms: Unspecified, Uncertain, None, NA. These do not use brackets or concatenation."
+            }
+          ],
+          "$comment": "The value must either be a grammatical positional restriction or one of the special vocabulary terms."
+        },
+        "morphemes": {
+          "type": "object",
+          "required": [
+            "units",
+            "positional_restrictions"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "units": { "$ref": "#/$defs/morphunits" },
+            "positional_restrictions": { "$ref": "#/$defs/positional_restrictions" }
+          }
+        },
+        "segments": {
+          "type": "object",
+          "required": [
+            "units",
+            "positional_restrictions"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "units": { "$ref": "#/$defs/phonunits" },
+            "positional_restrictions": { "$ref": "#/$defs/positional_restrictions" }
+          }
+        },
+        "morphemeslist": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/morphemes"
+          }
+        },
+        "segmentslist": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/segments"
+          }
+        }
+      }
+    };
+    
+    JSONEditor.defaults.options.theme = 'bootstrap5';
+
+    // Make a deep copy of the original schema to avoid mutations
+    var schema = JSON.parse(JSON.stringify(originalSchema));
+
+    // Function to initialize the editor with custom property disabling logic
+    // Variable to track the current state of properties (enabled or disabled)
+    let arePropertiesDisabled = true; // Start with properties disabled
+
+    // Function to initialize the editor with property disabling based on state
+    function initializeEditor(currentData) {
+      // Destroy the existing editor instance if it exists
+      if (editor) {
+        editor.destroy();
+      }
+
+      // Initialize the editor with the current schema
+      editor = new JSONEditor(document.getElementById('editor_holder'), {
+        ajax: true,
+        schema: schema,
+        startval: currentData || initialData,
+        disable_edit_json: true, // Disable the JSON editor button globally
+        disable_properties: arePropertiesDisabled, // Set based on the toggle state
+        disable_array_reorder: true,
+        disable_collapse: true,
+        disable_array_delete_last_row: true,
+        enable_array_copy: true,
+        disable_array_delete_all_rows: true
+      });
+
+      // Set change event to indicate changes
+      editor.on('change', function () {
+        document.getElementById('save_status').textContent = 'Changes detected. Auto-saving in 3 seconds...';
+        hasChanges = true;
+      });
+    }
+
+    // Load saved data from localStorage (if it exists)
+    var savedData = localStorage.getItem('editorData');
+    var initialData = savedData ? JSON.parse(savedData) : starting_value;
+
+    // Toggle properties button
+    document.getElementById('toggle-properties').addEventListener('click', function () {
+      // Toggle the state
+      arePropertiesDisabled = !arePropertiesDisabled;
+
+      // Re-initialize the editor with the new properties state
+      initializeEditor(editor.getValue());
+    });
+
+    // Load saved data from localStorage (if it exists)
+    var savedData = localStorage.getItem('editorData');
+    var initialData = savedData ? JSON.parse(savedData) : starting_value;
+
+    // Call initializeEditor to create the editor
+    initializeEditor(initialData);
+
+    // Hook up the Restore to Default button with confirmation modal
+    document.getElementById('restore').addEventListener('click', function () {
+      // Show the confirmation modal
+      document.getElementById('confirmation-modal').classList.add('active');
+    });
+
+    // Event listener for "Yes" button in confirmation modal
+    document.getElementById('confirm-yes').addEventListener('click', function () {
+      // Proceed with restoring to default
+      editor.setValue(starting_value);
+      hasChanges = true; // Indicate that changes were made
+      // Hide the modal
+      document.getElementById('confirmation-modal').classList.remove('active');
+      // Clear saved data
+      localStorage.removeItem('editorData');
+    });
+
+    // Event listener for "No" button in confirmation modal
+    document.getElementById('confirm-no').addEventListener('click', function () {
+      // Hide the modal without doing anything
+      document.getElementById('confirmation-modal').classList.remove('active');
+    });
+
+    // Close the modal when clicking outside or on the close button
+    var modalOverlays = document.querySelectorAll('#confirmation-modal .modal-overlay, #confirmation-modal .btn-clear');
+    modalOverlays.forEach(function (element) {
+      element.addEventListener('click', function () {
+        document.getElementById('confirmation-modal').classList.remove('active');
+      });
+    });
+
+    // Function to save the editor data to localStorage
+    function saveEditorData() {
+      var currentData = editor.getValue();
+      localStorage.setItem('editorData', JSON.stringify(currentData));
+
+      // After saving, indicate that the data has been saved
+      document.getElementById('save_status').textContent = 'Data saved!';
+
+      // Hide the saving indicator
+      document.getElementById('saving-indicator').style.visibility = 'hidden';
+    }
+
+    // Auto-save logic, checking every 3 seconds
+    function autoSave() {
+      if (hasChanges) {
+        // Show saving indicator before saving
+        document.getElementById('saving-indicator').style.visibility = 'visible';
+
+        saveEditorData();
+        hasChanges = false;
+      }
+    }
+
+    // Set interval to check for changes every 3 seconds
+    saveInterval = setInterval(autoSave, 3000);
+
+    // Function to hide descriptions and update schema accordingly
+    function hideDes(obj) {
+      for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          if (key === "description") {
+            obj["$description"] = obj["description"];  // Hide the description
+            delete obj["description"];
+          } else if (key === "required" && Array.isArray(obj[key])) {
+            // Remove 'description' from required array
+            obj[key] = obj[key].filter(function (item) {
+              return item !== "description";
+            });
+          } else if (typeof obj[key] === "object") {
+            // Recursive call for nested objects
+            hideDes(obj[key]);
+          }
+        }
+      }
+    }
+
+    // Function to show descriptions and update schema accordingly. 
+    // Note from Jiacheng: I tried to use a single button to toggle the two functions by implementing a flag, in the form of description_state. Then, depending on the state of that, we should be able to have just one function Toggle_Description that does both. However, eventually I realized that my javascript skill could not make it happen.  
+    function showDes(obj) {
+      for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          if (key === "$description") {
+            obj["description"] = obj["$description"];  // Show the description
+            delete obj["$description"];
+          } else if (key === "required" && Array.isArray(obj[key])) {
+            // Check if 'description' should be required (assuming it was in the original schema)
+            var path = obj.$id || "";  // Use $id as an identifier for the schema fragment
+            var originalFragment = getSchemaFragmentById(originalSchema, path);
+            if (originalFragment && originalFragment.required && originalFragment.required.includes("description")) {
+              if (!obj[key].includes("description")) {
+                obj[key].push("description");
+              }
+            }
+          } else if (typeof obj[key] === "object") {
+            // Recursive call for nested objects
+            showDes(obj[key]);
+          }
+        }
+      }
+    }
+
+    // Helper function to retrieve a schema fragment by its $id
+    function getSchemaFragmentById(schema, id) {
+      if (schema.$id === id) {
+        return schema;
+      } else if (typeof schema === "object") {
+        for (var key in schema) {
+          if (schema.hasOwnProperty(key)) {
+            var result = getSchemaFragmentById(schema[key], id);
+            if (result) return result;
+          }
+        }
+      }
+      return null;
+    }
+
+    // Hide Description button
+    document.getElementById('hide-description').addEventListener('click', function () {
+      var currentData = editor.getValue();
+      saveEditorData();
+      // Make a deep copy of the original schema to avoid mutations
+      schema = JSON.parse(JSON.stringify(schema));
+      hideDes(schema);
+      initializeEditor(currentData);
+    });
+
+    // Show Description button
+    document.getElementById('show-description').addEventListener('click', function () {
+      var currentData = editor.getValue();
+      saveEditorData();
+      // Reset the schema to the original
+      schema = JSON.parse(JSON.stringify(originalSchema));
+      showDes(schema);
+      initializeEditor(currentData);
+    });
+
+    // Load JSON from file
+    document.getElementById('load-json').addEventListener('click', function () {
+      document.getElementById('file-input').click();
+    });
+
+    // Handle file input for loading JSON
+    document.getElementById('file-input').addEventListener('change', function (event) {
+      var file = event.target.files[0];
+      var reader = new FileReader();
+
+      reader.onload = function (e) {
+        var jsonContent = JSON.parse(e.target.result);
+        editor.setValue(jsonContent);
+      };
+
+      if (file) {
+        reader.readAsText(file);
+      }
+    });
+
+    // Export JSON functionality
+    document.getElementById('export-json').addEventListener('click', function () {
+      var jsonContent = JSON.stringify(editor.getValue(), null, 2);
+      var blob = new Blob([jsonContent], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = 'data.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+  </script>
+
+</body>
+
+</html>
