@@ -206,10 +206,6 @@
       "minItems": 0
     },
     "positional_restrictions": {
-      "$comment": "(TODO: do not parse the strings that appear in the data entry spreadsheet into constituent parts right now; later we can inventory all of the string values and decide whether to split this into multiple fields.); TODO: validation",
-      "type": "string"
-    },
-    "positional_restrictions": {
       "description": "A string that represents either a positional restriction (1-tuple or 2-tuple), a concatenation of positional restrictions using commas and greater signs, or one of the special vocabulary terms: Unspecified, Uncertain, None, NA.",
       "oneOf": [
         {
