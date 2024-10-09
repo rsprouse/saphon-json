@@ -128,7 +128,11 @@
       "properties": {
         "summary": {
           "description": "A prose description of the project's synthesis of the source materials. (TODO: rename field?)",
-          "type": "string"
+          "type": "string",
+          "format": "textarea",
+          "options": {
+            "expand_height": true
+          }
         },
         "notes": {
           "description": "Notes relating to the synthesis",
@@ -162,6 +166,10 @@
     },
     "notes": {
       "type": "string",
+      "format": "textarea",
+      "options": {
+        "expand_height": true
+      },
       "minLength": 0
     },
     "ipachar": {
@@ -442,6 +450,10 @@
           "summary": {
             "description": "A prose description of the process.",
             "type": "string",
+            "format": "textarea",
+            "options": {
+              "expand_height": true
+            },
         "$comment": "TODO: test for vocab value; also, it is confusing to have a saphon name be the same as the json schema keyword 'description'"
           },
           "optionality": {
@@ -550,7 +562,11 @@
       "properties": {
         "summary": {
           "description": "A prose description of the source materials. (TODO: rename field?)",
-          "type": "string"
+          "type": "string",
+          "format": "textarea",
+          "options": {
+            "expand_height": true
+          }
         },
         "citation": {
           "description": "One or more bibliographic citations for the source",
