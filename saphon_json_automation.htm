@@ -20,18 +20,29 @@
       color: green;
       font-weight: bold;
     }
+
+    .modal {
+      display: none;
+      /* debugging... */
+    }
+
+    .modal.active {
+      display: block;
+    }
+
     /*
     body div.container #show-description {
       display: none !important;
     }
     */
     /* Description elements */
-/*    :is(.form-group > small.form-text, div.card-body p ) { */
+    /*    :is(.form-group > small.form-text, div.card-body p ) { */
     div[data-schematype] :is(small.form-text, p) {
       display: none !important;
     }
-/*    body div.container #show-description:checked ~ * :is(.form-group > small.form-text, div.card-body p) { */
-    body div.container #show-description:checked ~ * div[data-schematype] :is(small.form-text, p) {
+
+    /*    body div.container #show-description:checked ~ * :is(.form-group > small.form-text, div.card-body p) { */
+    body div.container #show-description:checked~* div[data-schematype] :is(small.form-text, p) {
       display: block !important;
     }
   </style>
@@ -39,7 +50,7 @@
 
 <body>
   <div class="container">
-	<input type="checkbox" id="show-description" class="show-description btn btn-secondary btn-sm" />Show Descriptions
+    <input type="checkbox" id="show-description" class="show-description btn btn-secondary btn-sm" />Show Descriptions
     <div class="columns">
       <h1 class="col-md-12">Auto-Saving JSON Editor Example</h1>
     </div>
@@ -87,12 +98,8 @@
 
     // This is the starting value for the editor
     var starting_value = {
-      // Your starting JSON data here...
     };
 
-    // Original schema for the editor (use your provided schema)
-//    var originalSchema = {
-//    };
 
     JSONEditor.defaults.options.theme = 'bootstrap5';
 
@@ -121,8 +128,11 @@
         disable_collapse: true,
         disable_array_delete_last_row: true,
         enable_array_copy: true,
-        disable_array_delete_all_rows: true
+        disable_array_delete_all_rows: true,
+        expand_height: true
       });
+
+      ResizeTextareas();
 
       // Set change event to indicate changes
       editor.on('change', function () {
@@ -142,80 +152,80 @@
 
       // Re-initialize the editor with the new properties state
       initializeEditor(editor.getValue());
+      ResizeTextareas();
     });
 
     // Load saved data from localStorage (if it exists)
     var savedData = localStorage.getItem('editorData');
     var initialData = savedData ? JSON.parse(savedData) : starting_value;
 
-	/** Load schema locally or from github **/
-        //const schemaUrl = 'https://raw.githubusercontent.com/levmichael/saphon/spreadsheet/saphonlang.schema.json';
-        const schemaUrl = '/saphonlang.schema.json';
+    /** Load schema locally or from github **/
+    //const schemaUrl = 'https://raw.githubusercontent.com/levmichael/saphon/spreadsheet/saphonlang.schema.json';
+    const schemaUrl = '/saphonlang.schema.json';
 
-        // Fetch the schema from GitHub
-        fetch(schemaUrl)
-            .then(response => response.json())
-            .then(originalSchema => {
-                // Make a deep copy of the original schema to avoid mutations and save to var in outer scope.
-                schema = JSON.parse(JSON.stringify(originalSchema));
+    // Fetch the schema from GitHub
+    fetch(schemaUrl)
+      .then(response => response.json())
+      .then(originalSchema => {
+        // Make a deep copy of the original schema to avoid mutations and save to var in outer scope.
+        schema = JSON.parse(JSON.stringify(originalSchema));
 
-                // Call initializeEditor to create the editor
-                initializeEditor(initialData);
+        // Call initializeEditor to create the editor
+        initializeEditor(initialData);
+        ResizeTextareas();
+        /*
+                        // Initialize the JSON Editor with the fetched schema
+                        const editor = new JSONEditor(document.getElementById('editor_holder'), {
+                            schema: schema
+                        });
+        
+                        // Handle the submit button
+                        document.getElementById('submit').addEventListener('click', () => {
+                            const json = editor.getValue();
+                            document.getElementById('output').textContent = JSON.stringify(json, null, 2);
+                        });
+        */
+        // Handle the reset button
+        document.getElementById('reset').addEventListener('click', () => {
+          editor.setValue({});
+          document.getElementById('output').textContent = '';
+        });
 
-/*
-                // Initialize the JSON Editor with the fetched schema
-                const editor = new JSONEditor(document.getElementById('editor_holder'), {
-                    schema: schema
-                });
+        // Hook up the Restore to Default button with confirmation modal
+        document.getElementById('restore').addEventListener('click', function () {
+          // Show the confirmation modal
+          document.getElementById('confirmation-modal').classList.add('active');
+        });
 
-                // Handle the submit button
-                document.getElementById('submit').addEventListener('click', () => {
-                    const json = editor.getValue();
-                    document.getElementById('output').textContent = JSON.stringify(json, null, 2);
-                });
+        // Event listener for "Yes" button in confirmation modal
+        document.getElementById('confirm-yes').addEventListener('click', function () {
+          // Proceed with restoring to default
+          editor.setValue(starting_value);
+          hasChanges = true; // Indicate that changes were made
+          // Hide the modal
+          document.getElementById('confirmation-modal').classList.remove('active');
+          // Clear saved data
+          localStorage.removeItem('editorData');
+        });
 
-                // Handle the reset button
-                document.getElementById('reset').addEventListener('click', () => {
-                    editor.setValue({});
-                    document.getElementById('output').textContent = '';
-                });
-*/
+        // Event listener for "No" button in confirmation modal
+        document.getElementById('confirm-no').addEventListener('click', function () {
+          // Hide the modal without doing anything
+          document.getElementById('confirmation-modal').classList.remove('active');
+        });
 
-                // Hook up the Restore to Default button with confirmation modal
-                document.getElementById('restore').addEventListener('click', function () {
-                  // Show the confirmation modal
-                  document.getElementById('confirmation-modal').classList.add('active');
-                });
-
-                // Event listener for "Yes" button in confirmation modal
-                document.getElementById('confirm-yes').addEventListener('click', function () {
-                  // Proceed with restoring to default
-                  editor.setValue(starting_value);
-                  hasChanges = true; // Indicate that changes were made
-                  // Hide the modal
-                  document.getElementById('confirmation-modal').classList.remove('active');
-                  // Clear saved data
-                  localStorage.removeItem('editorData');
-                });
-
-                // Event listener for "No" button in confirmation modal
-                document.getElementById('confirm-no').addEventListener('click', function () {
-                  // Hide the modal without doing anything
-                  document.getElementById('confirmation-modal').classList.remove('active');
-                });
-
-                // Close the modal when clicking outside or on the close button
-                var modalOverlays = document.querySelectorAll('#confirmation-modal .modal-overlay, #confirmation-modal .btn-clear');
-                modalOverlays.forEach(function (element) {
-                  element.addEventListener('click', function () {
-                    document.getElementById('confirmation-modal').classList.remove('active');
-                  });
-                });
-            })
-            .catch(error => {
-                console.error('Error loading schema:', error);
-                document.getElementById('output').textContent = 'Error loading schema. Please check the console for more details.';
-            });
+        // Close the modal when clicking outside or on the close button
+        var modalOverlays = document.querySelectorAll('#confirmation-modal .modal-overlay, #confirmation-modal .btn-clear');
+        modalOverlays.forEach(function (element) {
+          element.addEventListener('click', function () {
+            document.getElementById('confirmation-modal').classList.remove('active');
+          });
+        });
+      })
+      .catch(error => {
+        console.error('Error loading schema:', error);
+        document.getElementById('output').textContent = 'Error loading schema. Please check the console for more details.';
+      });
 
 
     // Function to save the editor data to localStorage
@@ -244,53 +254,6 @@
     // Set interval to check for changes every 3 seconds
     saveInterval = setInterval(autoSave, 3000);
 
-/*
-    // Function to hide descriptions and update schema accordingly
-    function hideDes(obj) {
-      for (var key in obj) {
-        if (obj.hasOwnProperty(key)) {
-          if (key === "description") {
-            obj["$description"] = obj["description"];  // Hide the description
-            delete obj["description"];
-          } else if (key === "required" && Array.isArray(obj[key])) {
-            // Remove 'description' from required array
-            obj[key] = obj[key].filter(function (item) {
-              return item !== "description";
-            });
-          } else if (typeof obj[key] === "object") {
-            // Recursive call for nested objects
-            hideDes(obj[key]);
-          }
-        }
-      }
-    }
-
-    // Function to show descriptions and update schema accordingly.
-    // Note from Jiacheng: I tried to use a single button to toggle the two functions by implementing a flag, in the form of description_state. Then, depending on the state of that, we should be able to have just one function Toggle_Description that does both. However, eventually I realized that my javascript skill could not make it happen.
-    function showDes(obj) {
-      for (var key in obj) {
-        if (obj.hasOwnProperty(key)) {
-          if (key === "$description") {
-            obj["description"] = obj["$description"];  // Show the description
-            delete obj["$description"];
-          } else if (key === "required" && Array.isArray(obj[key])) {
-            // Check if 'description' should be required (assuming it was in the original schema)
-            var path = obj.$id || "";  // Use $id as an identifier for the schema fragment
-            var originalFragment = getSchemaFragmentById(originalSchema, path);
-            if (originalFragment && originalFragment.required && originalFragment.required.includes("description")) {
-              if (!obj[key].includes("description")) {
-                obj[key].push("description");
-              }
-            }
-          } else if (typeof obj[key] === "object") {
-            // Recursive call for nested objects
-            showDes(obj[key]);
-          }
-        }
-      }
-    }
-*/
-
     // Helper function to retrieve a schema fragment by its $id
     function getSchemaFragmentById(schema, id) {
       if (schema.$id === id) {
@@ -306,27 +269,45 @@
       return null;
     }
 
-/*
-    // Hide Description button
-    document.getElementById('hide-description').addEventListener('click', function () {
-      var currentData = editor.getValue();
-      saveEditorData();
-      // Make a deep copy of the original schema to avoid mutations
-      schema = JSON.parse(JSON.stringify(schema));
-      hideDes(schema);
-      initializeEditor(currentData);
+    // This function triggers some ghost events within the textarea entries, initiating the automatic resizing. 
+
+    function ResizeTextareas() {
+      // Select all textareas within the JSON editor
+      const textareas = document.querySelectorAll('textarea');
+
+      // Loop over each textarea and trigger an 'input' event
+      textareas.forEach((textarea) => {
+        const event = new Event('change', { 'bubbles': true, 'cancelable': false });
+        textarea.dispatchEvent(event);
+      });
+    }
+
+    document.getElementById('load-json').addEventListener('click', function () {
+      // Simulate the file import process, and trigger resize after loading
+      document.getElementById('file-input').addEventListener('change', function (event) {
+        var file = event.target.files[0];
+        var reader = new FileReader();
+
+        reader.onload = function (e) {
+          var jsonContent = JSON.parse(e.target.result);
+
+          // Set the loaded JSON content into the editor
+          editor.setValue(jsonContent);
+
+          ResizeTextareas();
+        };
+
+        if (file) {
+          reader.readAsText(file);
+        }
+      });
+
+      // Trigger the file input click event to open the file dialog
+      document.getElementById('file-input').click();
     });
 
-    // Show Description button
-    document.getElementById('show-description').addEventListener('click', function () {
-      var currentData = editor.getValue();
-      saveEditorData();
-      // Reset the schema to the original
-      schema = JSON.parse(JSON.stringify(originalSchema));
-      showDes(schema);
-      initializeEditor(currentData);
-    });
-*/
+
+    /*
     // Load JSON from file
     document.getElementById('load-json').addEventListener('click', function () {
       document.getElementById('file-input').click();
@@ -346,7 +327,7 @@
         reader.readAsText(file);
       }
     });
-
+*/
     // Export JSON functionality
     document.getElementById('export-json').addEventListener('click', function () {
       var jsonContent = JSON.stringify(editor.getValue(), null, 2);
