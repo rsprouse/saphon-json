@@ -30,18 +30,12 @@
       display: block;
     }
 
-    /*
-    body div.container #show-description {
-      display: none !important;
-    }
     */
     /* Description elements */
-    /*    :is(.form-group > small.form-text, div.card-body p ) { */
     div[data-schematype] :is(small.form-text, p) {
       display: none !important;
     }
 
-    /*    body div.container #show-description:checked ~ * :is(.form-group > small.form-text, div.card-body p) { */
     body div.container #show-description:checked~* div[data-schematype] :is(small.form-text, p) {
       display: block !important;
     }
