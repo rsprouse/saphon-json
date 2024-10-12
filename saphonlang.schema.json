@@ -217,12 +217,12 @@
       "description": "A string that represents either a positional restriction (1-tuple or 2-tuple), a concatenation of positional restrictions using commas and greater signs, or one of the special vocabulary terms: Unspecified, Uncertain, None, NA.",
       "oneOf": [
         {
-          "type": "Explicit",
+          "type": "string",
           "pattern": "^\\{(root|prefix|suffix|proclitic|enclitic|clitic|word|morpheme|affix|syllable|foot|stressed\\ syllable|unstressed\\ syllable|pretonic\\ syllable|posttonic\\ syllable|utterance|VP)(,\\s*(initial|final|lmost|rmost|medial|onset|coda|nucleus))?\\}(\\s*(,|>)\\s*\\{(root|prefix|suffix|proclitic|enclitic|clitic|word|morpheme|affix|syllable|foot|stressed\\ syllable|unstressed\\ syllable|pretonic\\ syllable|posttonic\\ syllable|utterance|VP)(,\\s*(initial|final|lmost|rmost|medial|onset|coda|nucleus))?\\})*$",
           "$comment": "This pattern allows for controlled vocabulary in positional restrictions. `foo` is restricted to linguistic elements, and `bar` is restricted to positional terms."
         },
         {
-          "type": "Special",
+          "type": "string",
           "enum": ["Unspecified", "Uncertain", "None", "NA"],
           "$comment": "Special vocabulary terms: Unspecified, Uncertain, None, NA. These do not use brackets or concatenation."
         }
@@ -412,8 +412,8 @@
       "description": "A list of details pertaining to all of the (nasal) processes active in the language. Each process described in this list must also refer to a process in the `phoneme` list one or more times. Each value in this list is a dict. The dict values of this list must not have repeated values of the conjunction of their `processtype` and `processname` values (see below).",
       "type": "array",
       "items": {
-      "format": "categories",
-      "basicCategoryTitle": "Main",
+        "format": "categories",
+        "basicCategoryTitle": "Main",
         "type": "object",
         "required": [
           "processname",
@@ -426,7 +426,6 @@
         ],
         "additionalProperties": false,
         "properties": {
-          "format": "categories",
           "processname": {
             "description": "The name of the process described. The value must match a string in the `processnames` list in the `phonemes` list. This value is a string.",
             "type": "string"
