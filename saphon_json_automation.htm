@@ -24,6 +24,10 @@
       font-weight: bold;
     }
 
+    textarea.form-control {
+      field-sizing: content !important;
+    }
+
     .modal {
       display: none;
       /* debugging... */
@@ -140,10 +144,7 @@
         disable_array_delete_last_row: true,
         enable_array_copy: true,
         disable_array_delete_all_rows: true,
-        expand_height: true
       });
-
-      ResizeTextareas();
 
       // Set change event to indicate changes
       editor.on('change', function () {
@@ -163,7 +164,6 @@
 
       // Re-initialize the editor with the new properties state
       initializeEditor(editor.getValue());
-      ResizeTextareas();
     });
 
     // Load saved data from localStorage (if it exists)
@@ -183,7 +183,6 @@
 
         // Call initializeEditor to create the editor
         initializeEditor(initialData);
-        ResizeTextareas();
         /*
                         // Initialize the JSON Editor with the fetched schema
                         const editor = new JSONEditor(document.getElementById('editor_holder'), {
@@ -283,19 +282,6 @@
       return null;
     }
 
-    // This function triggers some ghost events within the textarea entries, initiating the automatic resizing. 
-
-    function ResizeTextareas() {
-      // Select all textareas within the JSON editor
-      const textareas = document.querySelectorAll('textarea');
-
-      // Loop over each textarea and trigger an 'input' event
-      textareas.forEach((textarea) => {
-        const event = new Event('change', { 'bubbles': true, 'cancelable': false });
-        textarea.dispatchEvent(event);
-      });
-    }
-
     document.getElementById('load-json').addEventListener('click', function () {
       // Simulate the file import process, and trigger resize after loading
       document.getElementById('file-input').addEventListener('change', function (event) {
@@ -308,7 +294,6 @@
           // Set the loaded JSON content into the editor
           editor.setValue(jsonContent);
 
-          ResizeTextareas();
         };
 
         if (file) {
