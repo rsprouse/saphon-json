@@ -213,6 +213,17 @@
       },
       "minItems": 0
     },
+    "suprasegmentunits": {
+      "description": "A list of valid suprasegment symbols for this language.",
+      "type": "array",
+      "items": {
+        "description": "A valid suprasegment symbol for this language.",
+        "type": "string",
+        "pattern": ".+",
+        "$comment": "TODO: add validation"
+      },
+      "minItems": 0
+    },
     "positional_restrictions": {
       "description": "A string that represents either a positional restriction (1-tuple or 2-tuple), a concatenation of positional restrictions using commas and greater signs, or one of the special vocabulary terms: Unspecified, Uncertain, None, NA.",
       "oneOf": [
@@ -283,6 +294,26 @@
       "type": "array",
       "items": {
          "$ref": "#/$defs/procsegment"
+      },
+      "minItems": 0
+    },
+    "procsuprasegment": {
+      "description": "A dict of the suprasegments that are subject to the process, as listed under the keys `units` and `positional_restrictions`. TODO: validation",
+      "type": "object",
+      "dependentRequired": {
+        "units": ["positional_restrictions"]
+      },
+      "additionalProperties": false,
+      "properties": {
+        "units": { "$ref": "#/$defs/suprasegmentunits" },
+        "positional_restrictions": { "$ref": "#/$defs/positional_restrictions" }
+      }
+    },
+    "procsuprasegmentlist": {
+      "description": "A list of dicts of the suprasegments that are subject to the process, as listed under the keys `units` and `positional_restrictions`.",
+      "type": "array",
+      "items": {
+         "$ref": "#/$defs/procsuprasegment"
       },
       "minItems": 0
     },
@@ -464,7 +495,12 @@
           },
           "alternation_type": {
             "description": "The type of alternation described. The value is a string that must match one of the values of `proc_alternation_vocab` (TODO: add pointer to controlled vocabulary for this field).",
-            "type": "string"
+            "type": "string",
+        "enum": [
+          "phonological",
+          "morphological",
+          "morphophonological"
+        ]
           },
           "domain": {
             "description": "The domain in which the process occurs. The value is a string that must be `word-internal` or `cross-word`.",
@@ -515,6 +551,9 @@
               "morphemes": {
                 "description": "A dict of the morphemes that are subject to the process, as listed under the keys `units` and `positional_restrictions`. Note that the value is a simple dict and not a list of dicts as for `triggers`, `transparent`, and `opaque` values.",
                 "$ref": "#/$defs/procmorph"
+              },
+              "suprasegments": {
+                "$ref": "#/$defs/procsuprasegment"
               }
             }
           },
@@ -532,6 +571,9 @@
               "morphemes": {
                 "description": "A list of dicts of morphemes that trigger the process, as listed under the keys `units` and `positional_restriction`.",
                 "$ref": "#/$defs/procmorphlist"
+              },
+              "suprasegments": {
+                "$ref": "#/$defs/procsuprasegment"
               }
         }
           },
